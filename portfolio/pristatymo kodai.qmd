@@ -1,0 +1,592 @@
+---
+title: "Arijus Jaloveckas"
+format:
+  html:
+    embed-resources: true
+editor: visual
+editor_options: 
+  chunk_output_type: inline
+---
+
+# 1. Bibliotekos
+
+```{r}
+library(tidyverse)
+library(rstatix)
+library(readxl)
+library(ggpubr)
+library(patchwork)
+library(RColorBrewer)
+library(dplyr)
+```
+
+# 2. Duomenų įsikėlimas, pirminis susipažinimas su duomenimis, priskiriamas tinkamas R duomenų tipas kintamiesiems, nenaudojamų stulpelių išmetimas.
+
+```{r}
+library(readr)
+alzaimeris <- read_csv("Plasma lipidomics in Alzheimers disease and its progression-1.csv")
+```
+
+```{r}
+summary(alzaimeris)
+```
+
+```{r}
+glimpse(alzaimeris)
+```
+
+```{r}
+alzaimeris <- alzaimeris |> 
+  select(
+    1:8
+  ) |> 
+  mutate(
+    Diagnostic = factor(Diagnostic),
+    Sex = factor(Sex)
+  ) |> 
+  rename(
+    Amyloid = `CSF Amyloid (pg/mL)`,
+    Total_tau = `CSF Total tau (pg/mL)`,
+    P_tau = `CSF Phosphorylated tau (pg/mL)`
+  ) |> 
+  drop_na()
+```
+
+Pašalinu du paskutinius stulpelius nes jie nebus reikalingi analizėje. Taip pat pašalinti tiriamieji su nežinomom reikšmėm, kadangi tokie tiriamieji turėjo tik MMSE rezultatų informaciją.
+
+# 3. Aprašomoji statistika, kintamųjų pasiskirstymas pagal grupes, išskirčių šalinimas.
+
+Šiais duomenimis siekiu išsiaiškinti, kokie MMSE rezultatų ir įvairių biožymenų koncentracijos cerebrospinaliniame skystyje skirtumai tarp žmonių su skirtingomis protinės būklės diagnozėmis. Iškėliau hipotezes:
+
+Nulinė hipotezė (H)₀: Nėra reikšmingo skirtumo tarp skirtingų biožymeklių koncentracijos ir MMSE balų skirtingose grupėse.
+
+Alternatyvioji hipotezė (H₁): Tarp skirtingų biožymeklių koncentracijos ir MMSE balų skirtingose grupėse yra reikšmingas skirtumas.
+
+Ištirti skirtingos lyties ir amžiaus žmonių protinė būklė (MMSE testas) ir biožymenys:
+
+Alzheimer's Disease - žmonės sergantys alzaimeriu (tikimąsi 10-19 MMSE ir mažiausios amiloidų koncentracijos)
+
+Mild Cognitive Impairment - lengvą protinį sutrikimą turintys žmonės (tikimąsi 20-23 MMSE, didesnės už "Alzheimer's Disease" amiloidų koncentracijos CSF)
+
+MMSE - protinės būklės rezultatai (10-19 Alzaimeris, 20-23 lengvas protinis sutrikimas, 24-30 žmogus sveikas)
+
+Amyloid - amiloidinių darinių koncentracija cerebrospinaliniame skystyje (pg/mL) (tikimąsi mažesnės koncentracijos pažeistos protinės būklės grupėse)
+
+Total_tau - bendra tau baltymo koncentracija cerebrospinaliniame skystyje (pg/mL) (tikimąsi didesnės pažeistos protinės būklės grupėse)
+
+P_tau - fosforilinto tau baltymo koncentracija cerebrospinaliniame skystyje (pg/mL) (tikimąsi didesnės pažeistos protinės būklės grupėse)
+
+## Centrinės ir sklaidos charakteristikos:
+
+### MMSE
+
+```{r}
+alzaimeris |> 
+  group_by(Diagnostic) |> 
+  get_summary_stats(
+  MMSE,
+  show = c( "mean", "sd", "median", "iqr")
+)
+```
+
+### Amyloid
+
+```{r}
+alzaimeris |> 
+  group_by(Diagnostic) |> 
+  get_summary_stats(
+  Amyloid,
+  show = c( "mean", "sd", "median", "iqr")
+)
+```
+
+### Total_tau
+
+```{r}
+alzaimeris |> 
+  group_by(Diagnostic) |> 
+  get_summary_stats(
+  Total_tau,
+  show = c( "mean", "sd", "median", "iqr")
+  )
+```
+
+### P_tau
+
+```{r}
+alzaimeris |> 
+  group_by(Diagnostic) |> 
+  get_summary_stats(
+  P_tau,
+  show = c( "mean", "sd", "median", "iqr")
+  )
+```
+
+### Išvada: visose tirtose koncentracijose yra didelis standartinis nuokrypis, tikėtina, kad duomenys bus pasiskirstę neparametriškai ir kad bus išskirčių.
+
+```{r}
+MMSE_box <- ggplot(alzaimeris, aes(Diagnostic, MMSE, fill = Diagnostic)) +
+  geom_boxplot() +
+  theme(axis.text.x = element_text(angle = 45))
+
+A_box <- ggplot(alzaimeris, aes(Diagnostic, Amyloid, fill = Diagnostic)) +
+  geom_boxplot() +
+  theme(axis.text.x = element_text(angle = 45))
+
+tau_box <- ggplot(alzaimeris, aes(Diagnostic, Total_tau, fill = Diagnostic)) +
+  geom_boxplot() +
+  theme(axis.text.x = element_text(angle = 45))
+
+Ptau_box <- ggplot(alzaimeris, aes(Diagnostic, P_tau, fill = Diagnostic)) +
+  geom_boxplot() +
+  theme(axis.text.x = element_text(angle = 45))
+
+MMSE_density <- ggplot(alzaimeris, aes(MMSE, fill = Diagnostic)) +
+  geom_density(alpha = 0.4)
+
+A_density <- ggplot(alzaimeris, aes(Amyloid, fill = Diagnostic)) +
+  geom_density(alpha = 0.4)
+
+tau_density <- ggplot(alzaimeris, aes(Total_tau, fill = Diagnostic)) +
+  geom_density(alpha = 0.4)
+
+Ptau_density <- ggplot(alzaimeris, aes(P_tau, fill = Diagnostic)) +
+  geom_density(alpha = 0.4)
+```
+
+```{r}
+netransformuotas <- ((MMSE_box | A_box | tau_box | Ptau_box) /
+(MMSE_density | A_density | tau_density | Ptau_density)) +
+  plot_layout(guides = 'collect')
+
+netransformuotas
+```
+
+Išvada: matoma daug išskirčių visose grupėse, visuose matavimuose. Taip pat matoma, kad MMSE skirstinys yra pasislinkęs į dešinę, o likę CSF rodikliai pasiskirstę į kairę.
+
+## Išskirtys
+
+### MMSE
+
+```{r}
+alzaimeris |> 
+  group_by(Diagnostic) |>
+  identify_outliers(MMSE)
+```
+
+Išvada: pastebėta 1 ekstremali išskirtis: nr. 150.
+
+### Amyloid
+
+```{r}
+alzaimeris |> 
+  group_by(Diagnostic) |>
+  identify_outliers(Amyloid)
+```
+
+Išvada: pastebėta 2 ekstremalios išskirtys: numeriai 36, 60, 193.
+
+### Total_tau
+
+```{r}
+alzaimeris |> 
+  group_by(Diagnostic) |>
+  identify_outliers(Total_tau)
+```
+
+Išvada: yra 1 ekstremali išskirtis: nr. 193.
+
+### P_tau
+
+```{r}
+alzaimeris |> 
+  group_by(Diagnostic) |>
+  identify_outliers(P_tau)
+```
+
+Išvada: pastebėtos 3 ekstremalios išskirtys: numeriai 141, 108, 81, 193.
+
+## Duomenų transformacijos pagal identifikuotas problemas
+
+Pašalinamos ekstremalios išskirtys:
+
+```{r}
+ids_to_remove <- c(150, 36, 60, 141, 108, 81, 193)
+
+alzaimeris_transformed <- alzaimeris[!(alzaimeris$Sample %in% ids_to_remove), ]
+```
+
+Log transformuojamos MMSE, CSF amyloid, CSF total tau ir CSF phosphorylated tau reikšmės:
+
+```{r}
+alzaimeris_transformed <- alzaimeris_transformed |> 
+  mutate(
+    log_MMSE = log(MMSE),
+    log_amyloid = log(Amyloid),
+    log_tau = log(Total_tau),
+    log_Ptau = log(P_tau)
+)
+```
+
+## Pertvarkytų duomenų aprašomoji statistika ir grafinis atvaizdavimas
+
+### MMSE
+
+```{r}
+alzaimeris_transformed |> 
+  group_by(Diagnostic) |> 
+  get_summary_stats(
+  log_MMSE,
+  show = c( "mean", "sd", "median", "iqr")
+)
+```
+
+### Amyloid
+
+```{r}
+alzaimeris_transformed |> 
+  group_by(Diagnostic) |> 
+  get_summary_stats(
+  log_amyloid,
+  show = c( "mean", "sd", "median", "iqr")
+)
+```
+
+### Total_tau
+
+```{r}
+alzaimeris_transformed |> 
+  group_by(Diagnostic) |> 
+  get_summary_stats(
+  log_tau,
+  show = c( "mean", "sd", "median", "iqr")
+  )
+```
+
+### P_tau
+
+```{r}
+alzaimeris_transformed |> 
+  group_by(Diagnostic) |> 
+  get_summary_stats(
+  log_Ptau,
+  show = c( "mean", "sd", "median", "iqr")
+  )
+```
+
+## Grafinis duomenų pasiskirstymo atvaizdavimas
+
+```{r}
+MMSE_box_t <- ggplot(alzaimeris_transformed, aes(Diagnostic, log_MMSE, fill = Diagnostic)) +
+  geom_boxplot() +
+  theme(axis.text.x = element_text(angle = 45))
+
+A_box_t <- ggplot(alzaimeris_transformed, aes(Diagnostic, log_amyloid, fill = Diagnostic)) +
+  geom_boxplot() +
+  theme(axis.text.x = element_text(angle = 45))
+
+tau_box_t <- ggplot(alzaimeris_transformed, aes(Diagnostic, log_tau, fill = Diagnostic)) +
+  geom_boxplot() +
+  theme(axis.text.x = element_text(angle = 45))
+
+Ptau_box_t <- ggplot(alzaimeris_transformed, aes(Diagnostic, log_Ptau, fill = Diagnostic)) +
+  geom_boxplot() +
+  theme(axis.text.x = element_text(angle = 45))
+
+MMSE_density_t <- ggplot(alzaimeris_transformed, aes(log_MMSE, fill = Diagnostic)) +
+  geom_density(alpha = 0.4)
+
+A_density_t <- ggplot(alzaimeris_transformed, aes(log_amyloid, fill = Diagnostic)) +
+  geom_density(alpha = 0.4)
+
+tau_density_t <- ggplot(alzaimeris_transformed, aes(log_tau, fill = Diagnostic)) +
+  geom_density(alpha = 0.4)
+
+Ptau_density_t <- ggplot(alzaimeris_transformed, aes(log_Ptau, fill = Diagnostic)) +
+  geom_density(alpha = 0.4)
+```
+
+```{r}
+transformuotas <- ((MMSE_box_t | A_box_t | tau_box_t | Ptau_box_t) /
+(MMSE_density_t | A_density_t | tau_density_t | Ptau_density_t)) +
+  plot_layout(guides = 'collect')
+
+transformuotas
+```
+
+Išvada: log transformacija ir ekstremalių reikšmių pašalinimas padėjo pasiekti didesnį normalumą kintamiesiems. MMSE kintamojo kontrolės grupė išlieka pasislinkusi į dešinę, todėl galimai reikės naudoti neparametrinį metodą MMSE kintamajam.
+
+# 4. Palyginamoji statistika
+
+Siekiant įvertinti amiloidų, totalaus tau ir fosforilinto tau koncentracijos skirtumus tarp trijų žmonių grupių, naudosiu vienfaktorę (one-way) ANOVA analizę. MMSE naudosiu neparametrinę Kruskal-Wallis analizę
+
+Vienfaktorinė ANOVA turi keletą prielaidų:
+
+Išskirtys (jau patikrinta, duomenys turėjo ekstremalių išskirčių, tačiau jos pašalintos). Normalumo prielaida. (jei netenkinama, naudojamas Kruskal-Wallis) Dispersijos homogeniškumo prielaida. (jei netenkinama, naudojama Welch ANOVA)
+
+## Normalumo prielaida
+
+### MMSE
+
+```{r}
+alzaimeris_transformed |> 
+  group_by(Diagnostic) |>
+  shapiro_test(log_MMSE) 
+```
+
+```{r}
+ggqqplot(alzaimeris_transformed, "log_MMSE", facet.by = "Diagnostic")
+```
+
+Pažeista normalumo prielaida. Reikės naudoti neparametrinį analizės metodą.
+
+### Amyloid
+
+```{r}
+alzaimeris_transformed |> 
+  group_by(Diagnostic) |>
+  shapiro_test(log_amyloid) 
+```
+
+```{r}
+ggqqplot(alzaimeris_transformed, "log_amyloid", facet.by = "Diagnostic")
+```
+
+Normalumo prielaida nepažeista.
+
+### Total_tau
+
+```{r}
+alzaimeris_transformed |> 
+  group_by(Diagnostic) |>
+  shapiro_test(log_tau) 
+```
+
+```{r}
+ggqqplot(alzaimeris_transformed, "log_tau", facet.by = "Diagnostic")
+```
+
+Normalumo prielaida nepažeista.
+
+### P_tau
+
+```{r}
+alzaimeris_transformed |> 
+  group_by(Diagnostic) |>
+  shapiro_test(log_Ptau) 
+```
+
+```{r}
+ggqqplot(alzaimeris_transformed, "log_Ptau", facet.by = "Diagnostic")
+```
+
+Normalumo prielaida nepažeista.
+
+## Dispersijos homogeniškumo prielaida
+
+### Amyloid
+
+```{r}
+alzaimeris_transformed |> 
+  levene_test(log_amyloid ~ Diagnostic)
+```
+
+Homogeniškumo prielaida pažeista.
+
+### Total_tau
+
+```{r}
+alzaimeris_transformed |> 
+  levene_test(log_tau ~ Diagnostic)
+```
+
+Homogeniškumo prielaida tenkinama.
+
+### P_tau
+
+```{r}
+alzaimeris_transformed |> 
+  levene_test(log_Ptau ~ Diagnostic)
+```
+
+Homogeniškumo prielaida tenkinama.
+
+# Hipotezių tikrinimas
+
+### MMSE
+
+Naudojamas Kruskal-Wallis testas, kadangi MMSE kintamajame grupės nėra normaliai pasiskirsčiusios, taip pat kontrolinė grupė yra žymiai mažesnė už kitas dvi grupes.
+
+```{r}
+result_MMSE <- alzaimeris_transformed |> kruskal_test(log_MMSE ~ Diagnostic)
+result_MMSE
+```
+
+Skirtumai tarp grupių statistiškai reikšmingi, toliau atliekama efekto dydžio ir post-hoc analizės (post-hoc analizei naudojamas Dunn testas, nes jisai naudojamas kartu su Kruskal-Wallis analize):
+
+```{r}
+alzaimeris_transformed |>  kruskal_effsize(log_MMSE ~ Diagnostic)
+```
+
+```{r}
+pwc_MMSE <- alzaimeris_transformed |>  
+  dunn_test(log_MMSE ~ Diagnostic) 
+pwc_MMSE
+```
+
+Skirtumai tarp visų grupių yra statistiškai reikšmingi, efekto dydis yra didelis.
+
+### Rezultatų vaizdavimas su tarpgrupiniais skirtumais:
+
+```{r}
+pwc_MMSE <- pwc_MMSE |>  add_xy_position(x = "Diagnostic")
+
+final_MMSE <- ggplot(alzaimeris_transformed, aes(Diagnostic, log_MMSE)) +
+  geom_boxplot(aes(fill = Diagnostic)) +
+  stat_pvalue_manual(pwc_MMSE, hide.ns = TRUE, size = 6) +
+  scale_fill_brewer(palette = "Accent")  +
+  labs(y = "MMSE testo taškai logaritme") +  
+  theme(axis.title.x = element_blank(),
+     axis.title.y = element_text(size = 10),
+    axis.text.x = element_text(angle = 45)
+    )
+
+final_MMSE
+```
+
+## Amyloid
+
+Naudosiu Welch-ANOVA, kadangi buvo nepažeista normalumo prielaida, bet pažeista homogeniškumo.
+
+```{r}
+result_amyloid <- alzaimeris_transformed |>  welch_anova_test(log_amyloid ~ Diagnostic)
+result_amyloid
+```
+
+Skirtumai tarp grupių statistiškai reikšmingi, toliau atliekama tarpgrupinė analizė (naudojamas games_howell testas nes jis naudojamas su Welch ANOVA):
+
+```{r}
+pwc_amyloid <- alzaimeris_transformed |> games_howell_test(log_amyloid ~ Diagnostic)
+pwc_amyloid
+```
+
+Skirtumai tarp visų grupių statistiškai reikšmingi
+
+### Rezultatų vaizdavimas su tarpgrupiniais skirtumais:
+
+```{r}
+pwc_amyloid <- pwc_amyloid |>  add_xy_position(x = "Diagnostic")
+
+final_amyloid <- ggplot(alzaimeris_transformed, aes(Diagnostic, log_amyloid)) +
+  geom_boxplot(aes(fill = Diagnostic)) +
+  stat_pvalue_manual(pwc_amyloid, hide.ns = TRUE, size = 6) +
+  scale_fill_brewer(palette = "Accent")  +
+  labs(y = "Amiloidų koncentracija logaritme") +  
+  theme(axis.title.x = element_blank(),
+     axis.title.y = element_text(size = 10),
+    axis.text.x = element_text(angle = 45)
+    )
+
+final_amyloid
+```
+
+## Total_tau
+
+Bus naudojama one-way ANOVA, kadangi tenkinama tiek normalumo, tiek homogeniškumo prielaida. One-way Anova, o ne two-way ANOVA bus naudojama todėl, nes yra tik vienas kintamasis pagal kurį norima palyginti grupes.
+
+```{r}
+result_tau <- alzaimeris_transformed |>  anova_test(log_tau ~ Diagnostic)
+result_tau
+```
+
+Skirtumai tarp grupių statistiškai reikšmingi, toliau atliekamas tarpgrupinis palyginimas (naudojamas tukey, nes jisai naudojamas su ANOVA)
+
+```{r}
+pwc_tau <- alzaimeris_transformed|> tukey_hsd(log_tau ~ Diagnostic)
+pwc_tau
+```
+
+Tarp visų grupių yra statistiškai reikšmingas skirtumas.
+
+### Rezultatų vaizdavimas su tarpgrupiniais skirtumais:
+
+```{r}
+pwc_tau <- pwc_tau |>  add_xy_position(x = "Diagnostic")
+
+final_tau <- ggplot(alzaimeris_transformed, aes(Diagnostic, log_tau)) +
+  geom_boxplot(aes(fill = Diagnostic)) +
+  stat_pvalue_manual(pwc_tau, hide.ns = TRUE, size = 6) +
+  scale_fill_brewer(palette = "Accent")  +
+  labs(y = "tau baltymo koncentracija logaritme") +  
+  theme(axis.title.x = element_blank(),
+     axis.title.y = element_text(size = 10),
+    axis.text.x = element_text(angle = 45)
+    )
+
+final_tau
+```
+
+## P_tau
+
+Bus naudojama one-way ANOVA, kadangi tenkinama tiek normalumo, tiek homogeniškumo prielaida. One-way Anova, o ne two-way ANOVA bus naudojama todėl, nes yra tik vienas kintamasis pagal kurį norima palyginti grupes.
+
+```{r}
+result_Ptau <- alzaimeris_transformed |>  anova_test(log_Ptau ~ Diagnostic)
+result_Ptau
+```
+
+Skirtumai tarp grupių statistiškai reikšmingi, toliau atliekamas tarpgrupinis palyginimas (naudojamas tukey, nes jisai naudojamas su ANOVA)
+
+```{r}
+pwc_Ptau <- alzaimeris_transformed|> tukey_hsd(log_Ptau ~ Diagnostic)
+pwc_Ptau
+```
+
+Tarp visų grupių yra statistiškai reikšmingas skirtumas.
+
+### Rezultatų vaizdavimas su tarpgrupiniais skirtumais:
+
+```{r}
+pwc_Ptau <- pwc_Ptau |>  add_xy_position(x = "Diagnostic")
+
+final_Ptau <- ggplot(alzaimeris_transformed, aes(Diagnostic, log_Ptau)) +
+  geom_boxplot(aes(fill = Diagnostic)) +
+  stat_pvalue_manual(pwc_Ptau, hide.ns = TRUE, size = 6) +
+  scale_fill_brewer(palette = "Accent")  +
+  labs(y = "Fosforilinto tau baltymo koncentracija logaritme") +  
+  theme(axis.title.x = element_blank(),
+     axis.title.y = element_text(size = 10),
+    axis.text.x = element_text(angle = 45)
+    )
+
+final_Ptau
+```
+
+Apibendrinu sudėdamas visus grafikus šalia kito
+
+```{r}
+isvadai <- (final_MMSE | final_amyloid | final_tau | final_Ptau) +
+  plot_layout(guides = 'collect') +
+  plot_annotation(tag_levels = 'A')
+```
+
+# Išvada
+
+Visi naudoti duomenys buvo log transformuoti, todėl buvo lyginti grupių logaritmai. Tyrimo rezultatai rodo, kad MMSE testo rezultato logaritmai reikšmingai skyrėsi tarp žmonių grupių (χ2(2) = 72, p \< 0.0001, n = 192, η2\[H\] = 0.37). "Alzheimer's Disease" grupėje MMSE rezultatų logaritmai buvo statistiškai reikšmingai mažesni nei "Mild Cognitive Impairment" (p \< 0.0001) ir "Control (p \< 0.0001) grupėse ir "Mild Cognitive Impairment" statistiškai reikšmingai mažesni už "Control" (p \< 0.005) (žr. 1 pav., A). Kaip buvo tikėtasi amiloidų koncentracijos CSF logaritmas taip pat skyrėsi tarp grupių (F(2, 47.75) = 23.92, p \< 0.0001, n = 150), "Alzheimer's Disease" esant statistiškai reikšmingai mažesniam už "Mild Cognitive Impairment" (p \< 0.0001) ir "Control" (p \< 0.0001). Taip pat "Mild Cognitive Impairment" grupės amiloidų koncentracijos logaritmas buvo mažesnis už "Control" (p = 0.009, žr. 1 pav., B). Taip pat pastebėtas tau koncentracijos logaritmo skirtumas tarp grupių (F(2, 189) = 16.995, p \< 0.0001, η2G = 0.152), šis skirtumas buvo mažas tarp "Control" ir "Mild Cognitive Impairment" grupių (p \< 0.029) ir didesnis tarp "Alzheimer's Disease" ir minėtų grupių ("Control" (p \< 0.0001) ir "Mild Cognitive Impairment" (p \< 0.001), žr. 1 pav., C). Galiausiai skirtumas tarp fosforilinto tau baltymo koncentracijos logaritmo tarp skirtingų grupių buvo statistiškai reikšmingas (F(2, 189) = 12.81, p \< 0.0001, η2G = 0.119). "Alzheimer's Disease" logaritmas buvo statistiškai reikšmingai didesnis už "Control" (p \< 0.0001) ir "Mild Cognitive Impairment" (p \< 0.01). Tuo tarpu "Mild Cognitive Impairment" buvo statistiškai reikšmingai didesnis už "Control" (p \< 0,05, žr. 1 pav., D). Atmetama nulinė hipotezė.
+
+```{r}
+isvadai
+```
+
+MMSE testo rezultatų (A) ir amiloidų (B) tau baltymo (C) ir fosforilinto tau baltymo (D) koncentracijos palyginimas cerebrospinalinio skysčio mėginiuose skirtingą protinį pajėgumą turinčiose žmonių grupėse. Statistiškai reikšmingi skirtumai pažymėti: \* p \< 0.05, \*\* p \< 0.01, \*\*\* p \< 0.001, \*\*\*\* p \< 0.0001
+
+Išsaugomi grafikai prezentacijai:
+
+```{r}
+ggsave("MMSE.png", plot = final_MMSE)
+ggsave("amyloid.png", plot = final_amyloid)
+ggsave("tau.png", plot = final_tau)
+ggsave("Ptau.png", plot = final_Ptau)
+ggsave("netrans.png", plot = netransformuotas)
+ggsave("trans.png", plot = transformuotas)
+```

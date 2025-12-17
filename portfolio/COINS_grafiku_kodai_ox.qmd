@@ -1,0 +1,134 @@
+---
+title: "Untitled"
+format: html
+editor: visual
+editor_options: 
+  chunk_output_type: inline
+---
+
+```{r}
+library(ggplot2)
+library(tidyverse)
+library(tidyr)
+library(rstatix)
+library(svglite)
+```
+
+```{r}
+library(readxl)
+oxidation <- read_excel("20250206_S100a4_oxidation.xlsx", 
+    sheet = "Sheet1", skip = 1)
+```
+
+```{r}
+oxidation <- oxidation |> 
+  select(
+    -Content
+  )
+
+oxidation <- oxidation |> 
+  slice(-c(1:3))
+```
+
+```{r}
+ox_mean <- oxidation |> 
+  rowwise() |> 
+    mutate(
+    "0%" = mean(c(`Sample X1`, `Sample X2`, `Sample X3`)),
+    "2.5%" = mean(c(`Sample X5`, `Sample X4`, `Sample X6`)),
+    "5%" = mean(c(`Sample X7`, `Sample X8`, `Sample X9`)),
+    "10%" = mean(c(`Sample X10`, `Sample X11`, `Sample X12`)),
+    "15%" = mean(c(`Sample X13`, `Sample X14`, `Sample X15`))
+  ) |> 
+  ungroup()
+
+ox_sd <- oxidation |> 
+  rowwise() |> 
+    mutate(
+    "0%" = sd(c(`Sample X1`, `Sample X2`, `Sample X3`)),
+    "2.5%" = sd(c(`Sample X5`, `Sample X4`, `Sample X6`)),
+    "5%" = sd(c(`Sample X7`, `Sample X8`, `Sample X9`)),
+    "10%" = sd(c(`Sample X10`, `Sample X11`, `Sample X12`)),
+    "15%" = sd(c(`Sample X13`, `Sample X14`, `Sample X15`))
+  ) |> 
+  ungroup()
+```
+
+```{r}
+ox_mean <- select(
+  ox_mean,
+  Time, "0%", "2.5%", "5%", "10%", "15%"
+  )
+
+ox_sd <- select(
+  ox_sd,
+  Time, "0%", "2.5%", "5%", "10%", "15%"
+)
+```
+
+```{r}
+ox_mean <- ox_mean |> 
+  pivot_longer(
+    cols =  c("0%", "2.5%", "5%", "10%", "15%"), 
+    names_to = "sample", 
+    values_to = "data",
+    names_transform = list(sample = as.factor)
+  )
+ox_sd <- ox_sd |> 
+  pivot_longer(
+    cols =  c("0%", "2.5%", "5%", "10%", "15%"), 
+    names_to = "sample", 
+    values_to = "data_sd",
+    names_transform = list(sample = as.factor)
+  )
+```
+
+```{r}
+ox <- oxidation |> 
+  pivot_longer(
+    cols =  c(`Sample X1`:`Sample X15`), 
+    names_to = "sample", 
+    values_to = "data",
+    names_transform = list(sample = as.factor)
+  )
+```
+
+```{r}
+ox_final <- inner_join(
+  ox_mean, ox_sd, by = c("Time", "sample")
+  )
+```
+
+```{r}
+ox_final <- ox_final %>%
+  mutate(sample = factor(sample, levels = c("0%","2.5%", "5%", "10%", "15%")))
+```
+
+
+```{r}
+ox_pic <- ox_final |> 
+  ggplot(aes(x = Time, y = data, fill = sample)) +
+  geom_line(show.legend = FALSE, size = 1, aes(color = sample))+
+  geom_ribbon(aes(ymin = data - data_sd, ymax = data + data_sd), alpha = 0.4, color = NA) +
+  theme_test() +
+  labs(
+    title = "ThT fluorescencijos intensyvumo pokytis laike",
+    subtitle = "Vandenilio peroksido poveikis",
+    x = "Laikas, h",
+    y = "ThT fluorescencijos intensyvumas, a.u.",
+    color = "H202 concentration",
+    fill = "H202 koncentracija"
+  ) +
+  theme(
+    legend.position = "inside",
+    legend.position.inside = c(0.15, 0.8)
+    )
+```
+
+```{r}
+ggsave("ox_pic.svg", plot = ox_pic, device = "svg")
+```
+```{r}
+ox_pic
+```
+
